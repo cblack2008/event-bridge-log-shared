@@ -17,37 +17,37 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install uv
       uses: astral-sh/setup-uv@v3
       with:
         version: "latest"
-    
+
     - name: Install dependencies
       run: |
         uv sync --extra dev
-    
+
     - name: Lint with ruff
       run: |
         uv run ruff check src/ tests/
-    
+
     - name: Format check with black
       run: |
         uv run black --check src/ tests/
-    
+
     - name: Type check with mypy
       run: |
         uv run mypy src/
-    
+
     - name: Test with pytest
       run: |
         uv run pytest --cov=src/event_bridge_log_shared --cov-report=xml --cov-report=term-missing
-    
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
@@ -60,23 +60,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
-    
+
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build twine
-    
+
     - name: Build package
       run: python -m build
-    
+
     - name: Check built package
       run: python -m twine check dist/*
-    
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -90,14 +90,14 @@ jobs:
     environment: release
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
-    
+
     steps:
     - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
         name: dist-${{ github.sha }}
         path: dist/
-    
+
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
@@ -110,26 +110,26 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
-    
+
     - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
         name: dist-${{ github.sha }}
         path: dist/
-    
+
     - name: Configure GitHub Packages
       run: |
         echo "Publishing to GitHub Packages..."
         # Additional configuration for GitHub Packages if needed
-    
+
     - name: Publish to GitHub Packages
       run: |
         python -m pip install --upgrade pip twine

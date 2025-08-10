@@ -6,48 +6,49 @@ and payment lifecycle management.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any
 from decimal import Decimal
-from pydantic import Field
+
+from pydantic import ConfigDict, Field
 
 from .base import BaseEvent, EventType
 
 
 class PaymentProcessedEvent(BaseEvent):
     """Event emitted when a payment is successfully processed."""
-    
-    event_type: EventType = Field(default=EventType.PAYMENT_PROCESSED, description="Payment processed event")
-    
+
+    event_type: EventType = Field(
+        default=EventType.PAYMENT_PROCESSED, description="Payment processed event"
+    )
+
     # Payment details
     payment_id: str = Field(..., description="Unique payment identifier")
     payment_method: str = Field(..., description="Payment method used")
     payment_amount: Decimal = Field(..., description="Payment amount")
     payment_currency: str = Field(default="USD", description="Payment currency")
-    
+
     # Transaction information
     transaction_id: str = Field(..., description="External transaction identifier")
     processor: str = Field(..., description="Payment processor used")
     processing_time_ms: int = Field(..., description="Payment processing time in milliseconds")
-    
+
     # Order context
     order_id: str = Field(..., description="Associated order identifier")
     order_number: str = Field(..., description="Order number")
-    
+
     # Customer information
     customer_id: str = Field(..., description="Customer identifier")
     customer_email: str = Field(..., description="Customer email address")
-    
+
     # Financial details
-    fees: Optional[Decimal] = Field(None, description="Processing fees")
-    net_amount: Optional[Decimal] = Field(None, description="Net amount after fees")
-    
+    fees: Decimal | None = Field(None, description="Processing fees")
+    net_amount: Decimal | None = Field(None, description="Net amount after fees")
+
     # Security and compliance
-    risk_score: Optional[float] = Field(None, description="Risk assessment score")
+    risk_score: float | None = Field(None, description="Risk assessment score")
     fraud_check_passed: bool = Field(default=True, description="Whether fraud check passed")
-    
-    class Config:
-        """Pydantic configuration."""
-        schema_extra = {
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "payment_id": "pay_123",
                 "payment_method": "credit_card",
@@ -65,47 +66,51 @@ class PaymentProcessedEvent(BaseEvent):
                 "risk_score": 0.15,
                 "fraud_check_passed": True,
                 "source": "payment-service",
-                "user_id": "user_123"
+                "user_id": "user_123",
             }
         }
+    )
 
 
 class PaymentFailedEvent(BaseEvent):
     """Event emitted when a payment processing fails."""
-    
-    event_type: EventType = Field(default=EventType.PAYMENT_FAILED, description="Payment failed event")
-    
+
+    event_type: EventType = Field(
+        default=EventType.PAYMENT_FAILED, description="Payment failed event"
+    )
+
     # Payment details
     payment_id: str = Field(..., description="Payment identifier")
     payment_method: str = Field(..., description="Payment method attempted")
     payment_amount: Decimal = Field(..., description="Payment amount attempted")
     payment_currency: str = Field(default="USD", description="Payment currency")
-    
+
     # Failure information
     failure_reason: str = Field(..., description="Reason for payment failure")
-    failure_code: Optional[str] = Field(None, description="Error code from payment processor")
-    failure_message: Optional[str] = Field(None, description="Detailed error message")
-    
+    failure_code: str | None = Field(None, description="Error code from payment processor")
+    failure_message: str | None = Field(None, description="Detailed error message")
+
     # Order context
     order_id: str = Field(..., description="Associated order identifier")
     order_number: str = Field(..., description="Order number")
-    
+
     # Customer information
     customer_id: str = Field(..., description="Customer identifier")
     customer_email: str = Field(..., description="Customer email address")
-    
+
     # Retry information
     retry_count: int = Field(default=0, description="Number of retry attempts made")
     max_retries: int = Field(default=3, description="Maximum retry attempts allowed")
-    next_retry_time: Optional[datetime] = Field(None, description="When next retry should be attempted")
-    
+    next_retry_time: datetime | None = Field(
+        None, description="When next retry should be attempted"
+    )
+
     # Technical details
     processor: str = Field(..., description="Payment processor used")
-    processing_time_ms: Optional[int] = Field(None, description="Processing time before failure")
-    
-    class Config:
-        """Pydantic configuration."""
-        schema_extra = {
+    processing_time_ms: int | None = Field(None, description="Processing time before failure")
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "payment_id": "pay_123",
                 "payment_method": "credit_card",
@@ -124,51 +129,55 @@ class PaymentFailedEvent(BaseEvent):
                 "processor": "stripe",
                 "processing_time_ms": 800,
                 "source": "payment-service",
-                "user_id": "user_123"
+                "user_id": "user_123",
             }
         }
+    )
 
 
 class PaymentRefundedEvent(BaseEvent):
     """Event emitted when a payment is refunded."""
-    
-    event_type: EventType = Field(default=EventType.PAYMENT_REFUNDED, description="Payment refunded event")
-    
+
+    event_type: EventType = Field(
+        default=EventType.PAYMENT_REFUNDED, description="Payment refunded event"
+    )
+
     # Payment details
     payment_id: str = Field(..., description="Original payment identifier")
     refund_id: str = Field(..., description="Unique refund identifier")
     refund_amount: Decimal = Field(..., description="Refund amount")
     refund_currency: str = Field(default="USD", description="Refund currency")
-    
+
     # Original payment context
     original_amount: Decimal = Field(..., description="Original payment amount")
     order_id: str = Field(..., description="Associated order identifier")
     order_number: str = Field(..., description="Order number")
-    
+
     # Refund context
     refund_reason: str = Field(..., description="Reason for refund")
     refund_type: str = Field(..., description="Type of refund (full, partial, etc.)")
     refund_method: str = Field(..., description="How refund was processed")
-    
+
     # Customer information
     customer_id: str = Field(..., description="Customer identifier")
     customer_email: str = Field(..., description="Customer email address")
-    
+
     # Processing information
     processor: str = Field(..., description="Payment processor used")
     processing_time_ms: int = Field(..., description="Refund processing time in milliseconds")
-    
+
     # Business context
-    refunded_by: str = Field(..., description="Who initiated the refund (customer, merchant, system)")
-    refund_notes: Optional[str] = Field(None, description="Additional notes about the refund")
-    
+    refunded_by: str = Field(
+        ..., description="Who initiated the refund (customer, merchant, system)"
+    )
+    refund_notes: str | None = Field(None, description="Additional notes about the refund")
+
     # Financial impact
-    fees_refunded: Optional[Decimal] = Field(None, description="Fees that were refunded")
-    net_refund_amount: Optional[Decimal] = Field(None, description="Net refund amount after fees")
-    
-    class Config:
-        """Pydantic configuration."""
-        schema_extra = {
+    fees_refunded: Decimal | None = Field(None, description="Fees that were refunded")
+    net_refund_amount: Decimal | None = Field(None, description="Net refund amount after fees")
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "payment_id": "pay_123",
                 "refund_id": "ref_789",
@@ -189,6 +198,7 @@ class PaymentRefundedEvent(BaseEvent):
                 "fees_refunded": "8.99",
                 "net_refund_amount": "290.98",
                 "source": "payment-service",
-                "user_id": "user_123"
+                "user_id": "user_123",
             }
         }
+    )

@@ -34,21 +34,34 @@ pip install event-bridge-log-shared[dev]
 ### **Event Models**
 
 ```python
-from event_bridge_log_shared import UserRegistered, OrderCreated, settings
+from event_bridge_log_shared.models.events.user import UserRegisteredEvent
+from event_bridge_log_shared.models.events.ecommerce import OrderCreatedEvent
 
 # Create user registration event
-user_event = UserRegistered(
+user_event = UserRegisteredEvent(
     user_id="user123",
     email="user@example.com",
-    username="newuser"
+    username="newuser",
+    registration_method="email",
+    terms_accepted=True,
+    source="user-service",
 )
 
-# Create order event  
-order_event = OrderCreated(
+# Create order event
+order_event = OrderCreatedEvent(
     user_id="user123",
     order_id="order456",
-    total_amount=99.99,
-    currency="USD"
+    order_number="ORD-123",
+    order_total=99.99,
+    order_status="created",
+    items=[],
+    item_count=0,
+    customer_email="user@example.com",
+    shipping_address={"street": "1 Main St"},
+    billing_address={"street": "1 Main St"},
+    payment_method="credit_card",
+    shipping_method="standard",
+    source="checkout-service",
 )
 
 # Events are automatically validated and timestamped
@@ -59,39 +72,20 @@ print(f"Timestamp: {user_event.timestamp}")
 ### **Configuration**
 
 ```python
-from event_bridge_log_shared import settings
+from event_bridge_log_shared import build_settings
 
-# Access AWS configuration
-print(f"EventBridge Bus: {settings.aws.eventbridge_bus_name}")
-print(f"DynamoDB Table: {settings.aws.dynamodb_table_name}")
-print(f"AWS Region: {settings.aws.region}")
+cfg = build_settings(
+    aws={"environment": "development", "region": "us-east-1"},
+    app={"app_name": "my-service", "debug": True},
+)
 
-# Environment-specific settings
-print(f"Environment: {settings.environment}")
-print(f"Debug Mode: {settings.debug}")
+print(cfg.aws.eventbridge_bus_name)
+print(cfg.app.app_name)
 ```
 
 ### **All Available Events**
 
-```python
-from event_bridge_log_shared import (
-    # User Events
-    UserRegistered, UserLogin, UserLogout, UserProfileUpdated, UserDeleted,
-    
-    # Ecommerce Events  
-    ProductViewed, ProductSearched, CartItemAdded, CartItemRemoved,
-    CartAbandoned, OrderCreated, OrderPaid, OrderShipped, OrderDelivered,
-    
-    # Payment Events
-    PaymentProcessed, PaymentFailed, PaymentRefunded,
-    
-    # Inventory Events
-    InventoryLowStock, InventoryOutOfStock, InventoryRestocked,
-    
-    # Analytics Events
-    UserSession, PageView, ReviewSubmitted
-)
-```
+See modules under `event_bridge_log_shared.models.events` for complete class lists (e.g., `UserRegisteredEvent`, `OrderCreatedEvent`, `PaymentProcessedEvent`, `UserSessionEvent`, etc.).
 
 ## 🏗️ **Architecture**
 
@@ -126,21 +120,29 @@ All events extend `BaseEvent` and include:
 ```bash
 git clone https://github.com/yourusername/event-bridge-log-shared.git
 cd event-bridge-log-shared
-pip install -e .[dev]
+
+# Developer setup (dependencies + pre-commit hooks)
+make dev-setup
+
+# Or manually
+uv sync --extra dev
+uv run pre-commit install
 ```
 
 ### **Testing**
 
 ```bash
 # Run tests with coverage
-pytest --cov=src/event_bridge_log_shared --cov-report=html
+make test
 
-# Type checking
-mypy src/
+# Generate HTML coverage
+make coverage-html
 
-# Code formatting
-black src/ tests/
-ruff check src/ tests/
+# Lint and type check
+make lint
+
+# Auto-format and fix lint
+make format
 ```
 
 ### **Release Process**

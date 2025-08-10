@@ -59,7 +59,7 @@ def mock_environment():
 
 
 class TestConfigurationIsolation:
-    """Placeholder isolation tests; global settings removed from package."""
+    """Placeholder isolation tests (no global settings to test)."""
 
     def test_isolation_1(self, mock_environment):
         assert os.environ.get("ENVIRONMENT") is None

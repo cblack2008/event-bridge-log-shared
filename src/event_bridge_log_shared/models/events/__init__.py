@@ -3,95 +3,108 @@ Event models package for the Event Bridge Log Analytics Platform.
 
 This package contains all event models organized by domain:
 - user: User authentication and profile events
-- ecommerce: Shopping cart and order events  
+- ecommerce: Shopping cart and order events
 - inventory: Stock management events
 - payment: Financial transaction events
 - analytics: User behavior and analytics events
 """
 
-from .base import EventType, BaseEvent
+from typing import Union
 
-from .user import (
-    UserRegisteredEvent,
-    UserLoginEvent,
-    UserLogoutEvent,
-    UserProfileUpdatedEvent,
-    UserDeletedEvent,
+from .analytics import (
+    PageViewEvent,
+    ReviewSubmittedEvent,
+    UserSessionEvent,
 )
-
+from .base import BaseEvent, EventType
 from .ecommerce import (
-    ProductViewedEvent,
-    ProductSearchedEvent,
+    CartAbandonedEvent,
     CartItemAddedEvent,
     CartItemRemovedEvent,
-    CartAbandonedEvent,
     OrderCreatedEvent,
+    OrderDeliveredEvent,
     OrderPaidEvent,
     OrderShippedEvent,
-    OrderDeliveredEvent,
+    ProductSearchedEvent,
+    ProductViewedEvent,
 )
-
 from .inventory import (
     InventoryLowStockEvent,
     InventoryOutOfStockEvent,
     InventoryRestockedEvent,
 )
-
 from .payment import (
-    PaymentProcessedEvent,
     PaymentFailedEvent,
+    PaymentProcessedEvent,
     PaymentRefundedEvent,
 )
-
-from .analytics import (
-    ReviewSubmittedEvent,
-    UserSessionEvent,
-    PageViewEvent,
+from .user import (
+    UserDeletedEvent,
+    UserLoginEvent,
+    UserLogoutEvent,
+    UserProfileUpdatedEvent,
+    UserRegisteredEvent,
 )
 
-# Event Union Type for type hints (compatible with Python 3.9+)
-from typing import Union
-
-EventModel = Union[
-    # User events
-    UserRegisteredEvent, UserLoginEvent, UserLogoutEvent, UserProfileUpdatedEvent, UserDeletedEvent,
-    
-    # E-commerce events
-    ProductViewedEvent, ProductSearchedEvent,
-    CartItemAddedEvent, CartItemRemovedEvent, CartAbandonedEvent,
-    OrderCreatedEvent, OrderPaidEvent, OrderShippedEvent, OrderDeliveredEvent,
-    
-    # Inventory events
-    InventoryLowStockEvent, InventoryOutOfStockEvent, InventoryRestockedEvent,
-    
-    # Payment events
-    PaymentProcessedEvent, PaymentFailedEvent, PaymentRefundedEvent,
-    
-    # Analytics events
-    ReviewSubmittedEvent, UserSessionEvent, PageViewEvent,
-]
+EventModel = (
+    # PEP 604 union style
+    UserRegisteredEvent
+    | UserLoginEvent
+    | UserLogoutEvent
+    | UserProfileUpdatedEvent
+    | UserDeletedEvent
+    | ProductViewedEvent
+    | ProductSearchedEvent
+    | CartItemAddedEvent
+    | CartItemRemovedEvent
+    | CartAbandonedEvent
+    | OrderCreatedEvent
+    | OrderPaidEvent
+    | OrderShippedEvent
+    | OrderDeliveredEvent
+    | InventoryLowStockEvent
+    | InventoryOutOfStockEvent
+    | InventoryRestockedEvent
+    | PaymentProcessedEvent
+    | PaymentFailedEvent
+    | PaymentRefundedEvent
+    | ReviewSubmittedEvent
+    | UserSessionEvent
+    | PageViewEvent
+)
 
 __all__ = [
     # Base classes
-    "EventType", "BaseEvent",
-    
+    "EventType",
+    "BaseEvent",
     # User events
-    "UserRegisteredEvent", "UserLoginEvent", "UserLogoutEvent", "UserProfileUpdatedEvent", "UserDeletedEvent",
-    
+    "UserRegisteredEvent",
+    "UserLoginEvent",
+    "UserLogoutEvent",
+    "UserProfileUpdatedEvent",
+    "UserDeletedEvent",
     # E-commerce events
-    "ProductViewedEvent", "ProductSearchedEvent",
-    "CartItemAddedEvent", "CartItemRemovedEvent", "CartAbandonedEvent",
-    "OrderCreatedEvent", "OrderPaidEvent", "OrderShippedEvent", "OrderDeliveredEvent",
-    
+    "ProductViewedEvent",
+    "ProductSearchedEvent",
+    "CartItemAddedEvent",
+    "CartItemRemovedEvent",
+    "CartAbandonedEvent",
+    "OrderCreatedEvent",
+    "OrderPaidEvent",
+    "OrderShippedEvent",
+    "OrderDeliveredEvent",
     # Inventory events
-    "InventoryLowStockEvent", "InventoryOutOfStockEvent", "InventoryRestockedEvent",
-    
+    "InventoryLowStockEvent",
+    "InventoryOutOfStockEvent",
+    "InventoryRestockedEvent",
     # Payment events
-    "PaymentProcessedEvent", "PaymentFailedEvent", "PaymentRefundedEvent",
-    
+    "PaymentProcessedEvent",
+    "PaymentFailedEvent",
+    "PaymentRefundedEvent",
     # Analytics events
-    "ReviewSubmittedEvent", "UserSessionEvent", "PageViewEvent",
-    
+    "ReviewSubmittedEvent",
+    "UserSessionEvent",
+    "PageViewEvent",
     # Union type
     "EventModel",
 ]

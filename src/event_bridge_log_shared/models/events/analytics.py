@@ -6,43 +6,47 @@ session tracking, and other analytics data.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
-from pydantic import Field
+
+from pydantic import ConfigDict, Field
 
 from .base import BaseEvent, EventType
 
 
 class ReviewSubmittedEvent(BaseEvent):
     """Event emitted when a user submits a product review."""
-    
-    event_type: EventType = Field(default=EventType.REVIEW_SUBMITTED, description="Review submitted event")
-    
+
+    event_type: EventType = Field(
+        default=EventType.REVIEW_SUBMITTED, description="Review submitted event"
+    )
+
     # Review details
     review_id: str = Field(..., description="Unique review identifier")
     product_id: str = Field(..., description="Product being reviewed")
     product_name: str = Field(..., description="Product name")
-    
+
     # Rating and content
     rating: int = Field(..., description="Review rating (1-5 stars)")
-    title: Optional[str] = Field(None, description="Review title")
+    title: str | None = Field(None, description="Review title")
     content: str = Field(..., description="Review content text")
-    
+
     # User context
     reviewer_name: str = Field(..., description="Reviewer's display name")
-    verified_purchase: bool = Field(default=False, description="Whether reviewer made a verified purchase")
-    
+    verified_purchase: bool = Field(
+        default=False, description="Whether reviewer made a verified purchase"
+    )
+
     # Review context
-    review_source: str = Field(..., description="Where review was submitted (product page, email, etc.)")
+    review_source: str = Field(
+        ..., description="Where review was submitted (product page, email, etc.)"
+    )
     helpful_votes: int = Field(default=0, description="Number of helpful votes")
-    
+
     # Moderation
     is_approved: bool = Field(default=True, description="Whether review was approved")
-    moderation_notes: Optional[str] = Field(None, description="Moderation notes if applicable")
-    
-    class Config:
-        """Pydantic configuration."""
-        schema_extra = {
+    moderation_notes: str | None = Field(None, description="Moderation notes if applicable")
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "review_id": "rev_123",
                 "product_id": "prod_123",
@@ -56,46 +60,48 @@ class ReviewSubmittedEvent(BaseEvent):
                 "helpful_votes": 12,
                 "is_approved": True,
                 "source": "frontend",
-                "user_id": "user_123"
+                "user_id": "user_123",
             }
         }
+    )
 
 
 class UserSessionEvent(BaseEvent):
     """Event emitted for user session tracking and analytics."""
-    
+
     event_type: EventType = Field(default=EventType.USER_SESSION, description="User session event")
-    
+
     # Session details
     session_id: str = Field(..., description="Unique session identifier")
     session_start: datetime = Field(..., description="Session start timestamp")
-    session_end: Optional[datetime] = Field(None, description="Session end timestamp")
-    session_duration: Optional[int] = Field(None, description="Session duration in seconds")
-    
+    session_end: datetime | None = Field(None, description="Session end timestamp")
+    session_duration: int | None = Field(None, description="Session duration in seconds")
+
     # User context
     user_agent: str = Field(..., description="User agent string")
     ip_address: str = Field(..., description="User IP address")
     device_type: str = Field(..., description="Device type (desktop, mobile, tablet)")
     browser: str = Field(..., description="Browser name and version")
     operating_system: str = Field(..., description="Operating system")
-    
+
     # Geographic information
-    country: Optional[str] = Field(None, description="User's country")
-    region: Optional[str] = Field(None, description="User's region/state")
-    city: Optional[str] = Field(None, description="User's city")
-    
+    country: str | None = Field(None, description="User's country")
+    region: str | None = Field(None, description="User's region/state")
+    city: str | None = Field(None, description="User's city")
+
     # Session metrics
     page_views: int = Field(default=0, description="Number of pages viewed in session")
     actions_performed: int = Field(default=0, description="Number of user actions performed")
-    conversion_events: List[str] = Field(default_factory=list, description="List of conversion events")
-    
+    conversion_events: list[str] = Field(
+        default_factory=list, description="List of conversion events"
+    )
+
     # Engagement metrics
-    time_on_site: Optional[int] = Field(None, description="Total time spent on site in seconds")
-    bounce_rate: Optional[float] = Field(None, description="Whether session was a bounce")
-    
-    class Config:
-        """Pydantic configuration."""
-        schema_extra = {
+    time_on_site: int | None = Field(None, description="Total time spent on site in seconds")
+    bounce_rate: float | None = Field(None, description="Whether session was a bounce")
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "session_id": "sess_123",
                 "session_start": "2024-01-15T10:00:00Z",
@@ -115,49 +121,49 @@ class UserSessionEvent(BaseEvent):
                 "time_on_site": 5400,
                 "bounce_rate": 0.0,
                 "source": "analytics-service",
-                "user_id": "user_123"
+                "user_id": "user_123",
             }
         }
+    )
 
 
 class PageViewEvent(BaseEvent):
     """Event emitted when a user views a page."""
-    
+
     event_type: EventType = Field(default=EventType.PAGE_VIEW, description="Page view event")
-    
+
     # Page information
     page_url: str = Field(..., description="Full page URL")
     page_title: str = Field(..., description="Page title")
     page_category: str = Field(..., description="Page category (product, category, cart, etc.)")
-    
+
     # Navigation context
-    referrer_url: Optional[str] = Field(None, description="Referrer URL")
-    referrer_domain: Optional[str] = Field(None, description="Referrer domain")
-    search_query: Optional[str] = Field(None, description="Search query if from search")
-    
+    referrer_url: str | None = Field(None, description="Referrer URL")
+    referrer_domain: str | None = Field(None, description="Referrer domain")
+    search_query: str | None = Field(None, description="Search query if from search")
+
     # User interaction
-    time_on_page: Optional[int] = Field(None, description="Time spent on page in seconds")
-    scroll_depth: Optional[float] = Field(None, description="Scroll depth percentage (0-100)")
-    
+    time_on_page: int | None = Field(None, description="Time spent on page in seconds")
+    scroll_depth: float | None = Field(None, description="Scroll depth percentage (0-100)")
+
     # Page context
-    page_load_time: Optional[int] = Field(None, description="Page load time in milliseconds")
-    page_size: Optional[int] = Field(None, description="Page size in bytes")
-    
+    page_load_time: int | None = Field(None, description="Page load time in milliseconds")
+    page_size: int | None = Field(None, description="Page size in bytes")
+
     # Content context
     content_type: str = Field(..., description="Type of content (product, category, blog, etc.)")
-    content_id: Optional[str] = Field(None, description="Content identifier if applicable")
-    
+    content_id: str | None = Field(None, description="Content identifier if applicable")
+
     # User journey
     session_id: str = Field(..., description="Session identifier")
     page_sequence: int = Field(..., description="Page sequence number in session")
-    
+
     # Performance metrics
     is_bounce: bool = Field(default=False, description="Whether this is a bounce page")
     exit_page: bool = Field(default=False, description="Whether user left site from this page")
-    
-    class Config:
-        """Pydantic configuration."""
-        schema_extra = {
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "page_url": "https://example.com/products/wireless-headphones",
                 "page_title": "Wireless Headphones - Example Store",
@@ -176,6 +182,7 @@ class PageViewEvent(BaseEvent):
                 "is_bounce": False,
                 "exit_page": False,
                 "source": "frontend",
-                "user_id": "user_123"
+                "user_id": "user_123",
             }
         }
+    )

@@ -108,7 +108,7 @@ def test_function_name_condition():
 
 class TestClassName:
     """Test suite for ClassName."""
-    
+
     def test_method_name_behavior(self):
         """Test specific behavior of method."""
         pass
@@ -131,11 +131,11 @@ def test_event_serialization():
         email="test@example.com",
         username="testuser"
     )
-    
+
     # Test dict conversion
     event_dict = event.model_dump()
     assert isinstance(event_dict, dict)
-    
+
     # Test round-trip
     recreated = UserRegistered.model_validate(event_dict)
     assert recreated.user_id == event.user_id
@@ -238,7 +238,7 @@ open htmlcov/index.html
 ### **Current Metrics**
 - **Test Count**: ~25 tests
 - **Execution Time**: ~1-2 seconds
-- **Coverage**: 88%+ 
+- **Coverage**: 88%+
 - **Success Rate**: 100%
 
 ### **Performance Tips**

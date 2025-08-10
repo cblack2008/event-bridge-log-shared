@@ -10,7 +10,7 @@ readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.11"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "cblack2008"}
 ]
 keywords = ["aws", "eventbridge", "analytics", "microservices", "shared"]
 classifiers = [
@@ -46,24 +46,24 @@ dev = [
     "pytest-asyncio>=0.21.0,<1.0.0",
     "pytest-cov>=4.1.0,<5.0.0",
     "pytest-mock>=3.12.0,<4.0.0",
-    
+
     # Code quality
     "black>=23.11.0,<24.0.0",
     "ruff>=0.1.0,<1.0.0",
     "mypy>=1.7.0,<2.0.0",
     "pre-commit>=3.7.0,<4.0.0",
-    
+
     # Documentation
     "mkdocs>=1.5.0,<2.0.0",
     "mkdocs-material>=9.0.0,<10.0.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/event-bridge-log-shared"
-Repository = "https://github.com/yourusername/event-bridge-log-shared"
-Documentation = "https://yourusername.github.io/event-bridge-log-shared"
-Issues = "https://github.com/yourusername/event-bridge-log-shared/issues"
-Changelog = "https://github.com/yourusername/event-bridge-log-shared/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/cblack2008/event-bridge-log-shared"
+Repository = "https://github.com/cblack2008/event-bridge-log-shared"
+Documentation = "https://cblack2008.github.io/event-bridge-log-shared"
+Issues = "https://github.com/cblack2008/event-bridge-log-shared/issues"
+Changelog = "https://github.com/cblack2008/event-bridge-log-shared/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/event_bridge_log_shared"]
@@ -122,6 +122,7 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
