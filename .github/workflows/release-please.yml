@@ -12,8 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Release Please
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
-          release-type: python
-          package-name: event-bridge-log-shared
-          extra-files: '["src/event_bridge_log_shared/__init__.py"]'
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
