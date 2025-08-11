@@ -3,6 +3,8 @@ name: Tag on Release PR Merge
 on:
   pull_request:
     types: [closed]
+  push:
+    branches: [main]
 
 jobs:
   tag_release:
@@ -33,4 +35,34 @@ jobs:
             git fetch origin "$SHA":"refs/tmp/${SHA}" || true
           fi
           git tag -a "${TAG}" -m "release ${TAG}" "$SHA"
+          git push origin "${TAG}"
+
+  tag_from_push:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag HEAD if commit message is a release
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUBJ=$(git log -1 --pretty=%s)
+          echo "Commit subject: $SUBJ"
+          if [[ "$SUBJ" =~ ^chore\(release\):\ v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            TAG=${SUBJ#chore(release): }
+            echo "Derived tag: $TAG"
+          else
+            echo "Not a release commit; skipping"
+            exit 0
+          fi
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} already exists; skipping"
+            exit 0
+          fi
+          git tag -a "${TAG}" -m "release ${TAG}" HEAD
           git push origin "${TAG}"
