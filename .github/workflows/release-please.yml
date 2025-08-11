@@ -1,0 +1,19 @@
+name: Release PR (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release Please
+        uses: google-github-actions/release-please-action@v4
+        with:
+          release-type: python
+          package-name: event-bridge-log-shared
+          extra-files: '["src/event_bridge_log_shared/__init__.py"]'
