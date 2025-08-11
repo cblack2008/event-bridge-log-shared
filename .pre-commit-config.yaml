@@ -1,6 +1,9 @@
+default_language_version:
+  python: python3.13
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
       - id: check-toml
@@ -10,15 +13,14 @@ repos:
 
   # Run ruff (fix) before black so import/order fixes are formatted afterward
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.10
+    rev: v0.12.8
     hooks:
       - id: ruff
 
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 25.1.0
     hooks:
       - id: black
-        language_version: python3.11
         args: ["--check"]
 
   - repo: local

@@ -1,10 +1,12 @@
 """
 Test suite for event models.
 """
+
 from datetime import datetime
 from uuid import UUID
 
 import pytest
+
 from event_bridge_log_shared.models.events.analytics import UserSessionEvent
 from event_bridge_log_shared.models.events.base import BaseEvent, EventType
 from event_bridge_log_shared.models.events.ecommerce import OrderCreatedEvent, ProductViewedEvent
