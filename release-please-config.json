@@ -1,12 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "python",
+  "include-component-in-tag": false,
   "packages": {
     ".": {
       "component": "event-bridge-log-shared",
       "extra-files": [
         "src/event_bridge_log_shared/__init__.py"
-      ]
+      ],
+      "release-as": "1.0.1"
     }
   }
 }
