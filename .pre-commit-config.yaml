@@ -41,3 +41,15 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
+      - id: mypy-src-all
+        name: mypy src/ (pre-push)
+        entry: uv run mypy src/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: pytest-all
+        name: pytest (pre-push)
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
