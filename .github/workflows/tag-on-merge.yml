@@ -3,9 +3,11 @@ name: Tag on Release PR Merge
 on:
   pull_request:
     types: [closed]
+  push:
+    branches: [main]
 
 jobs:
-  tag:
+  tag_from_pr:
     if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v')
     runs-on: ubuntu-latest
     permissions:
@@ -14,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Create tag at merge commit
+      - name: Create tag at merge commit (PR close)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUM: ${{ github.event.pull_request.number }}
@@ -39,6 +41,35 @@ jobs:
             echo "Falling back to current tip of origin/main"
             SHA=$(git rev-parse origin/main)
           fi
+          echo "Tagging ${TAG} at ${SHA}"
+          git tag -a "${TAG}" -m "release ${TAG}" "$SHA"
+          git push origin "${TAG}"
+
+  tag_from_push:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create tag on main push matching release commit message
+        run: |
+          set -euo pipefail
+          MSG=$(git log -1 --pretty=%B)
+          echo "Last commit message: $MSG"
+          TAG=$(echo "$MSG" | sed -nE 's/^chore\(release\): (v[0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+          if [ -z "${TAG:-}" ]; then
+            echo "No release commit message found; skipping"
+            exit 0
+          fi
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} already exists; skipping"
+            exit 0
+          fi
+          SHA=$(git rev-parse HEAD)
           echo "Tagging ${TAG} at ${SHA}"
           git tag -a "${TAG}" -m "release ${TAG}" "$SHA"
           git push origin "${TAG}"
