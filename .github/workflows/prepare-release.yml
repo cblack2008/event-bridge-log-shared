@@ -1,0 +1,90 @@
+name: Prepare Release (Build + Tag + Next Dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        type: choice
+        description: "Version bump"
+        default: patch
+        options: [patch, minor, major, custom]
+      custom_version:
+        description: "If custom selected, enter X.Y.Z"
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.ver.outputs.new }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compute and set release version
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUMP="${{ github.event.inputs.bump }}"
+          CUSTOM="${{ github.event.inputs.custom_version }}"
+          FILE=src/event_bridge_log_shared/__init__.py
+          CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          if [ "$BUMP" = custom ]; then
+            if [[ -z "${CUSTOM:-}" ]]; then echo "custom_version required"; exit 1; fi
+            NEW="$CUSTOM"
+          else
+            IFS=. read -r MA MI PA <<<"$CURR"
+            case "$BUMP" in
+              major) NEW="$((MA+1)).0.0" ;;
+              minor) NEW="$MA.$((MI+1)).0" ;;
+              patch) NEW="$MA.$MI.$((PA+1))" ;;
+              *) echo "Invalid bump: $BUMP"; exit 1 ;;
+            esac
+          fi
+          sed -E -i 's/__version__\s*=\s*"[^"]+"/__version__ = "'"$NEW"'"/' "$FILE"
+          echo "version $NEW"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag release
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/event_bridge_log_shared/__init__.py
+          git commit -m "chore(release): v${NEW}"
+          git tag "v${NEW}"
+          git push origin HEAD:main --tags
+
+      - name: Build distributions
+        run: |
+          python -m pip install -U pip build
+          python -m build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ steps.ver.outputs.new }}
+          path: dist/
+
+      - name: Bump to next dev version on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=src/event_bridge_log_shared/__init__.py
+          REL="${{ steps.ver.outputs.new }}"
+          IFS=. read -r MA MI PA <<<"$REL"
+          NEXT="$MA.$MI.$((PA+1)).dev0"
+          sed -E -i 's/__version__\s*=\s*"[^"]+"/__version__ = "'"$NEXT"'"/' "$FILE"
+          git add "$FILE"
+          git commit -m "chore(version): set next dev $NEXT"
+          git push
