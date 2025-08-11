@@ -28,8 +28,30 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # If base_ref provided, check out that; otherwise the ref that triggered the workflow
-          ref: ${{ inputs.base_ref != '' && inputs.base_ref || github.ref }}
+
+      - name: Optionally switch to base_ref
+        if: ${{ inputs.base_ref != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='${{ inputs.base_ref }}'
+          echo "Requested base_ref: $BASE"
+          echo "Fetching remote refs..."
+          git fetch origin --prune
+          if git show-ref --verify --quiet "refs/remotes/origin/${BASE}"; then
+            echo "Found remote branch origin/${BASE}; switching..."
+            git checkout -B "$BASE" "origin/${BASE}"
+          elif git show-ref --verify --quiet "refs/heads/${BASE}"; then
+            echo "Found local branch ${BASE}; switching..."
+            git checkout "$BASE"
+          elif git show-ref --verify --quiet "refs/tags/${BASE}"; then
+            echo "Found tag ${BASE}; switching (detached HEAD)..."
+            git checkout "refs/tags/${BASE}"
+          else
+            echo "base_ref '$BASE' not found as branch or tag. Available remote branches:" >&2
+            git branch -r >&2 || true
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
