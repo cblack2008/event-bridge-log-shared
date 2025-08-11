@@ -50,7 +50,8 @@ jobs:
               *) echo "Invalid bump: $BUMP"; exit 1 ;;
             esac
           fi
-          sed -E -i 's/__version__\s*=\s*"[^"]+"/__version__ = "'"$NEW"'"/' "$FILE"
+          python -m pip install -U hatch
+          hatch version "$NEW"
           echo "version $NEW"
           echo "new=$NEW" >> "$GITHUB_OUTPUT"
 
@@ -79,7 +80,7 @@ jobs:
 
       - name: Build distributions
         run: |
-          python -m pip install -U pip build
+          python -m pip install -U pip build hatch
           python -m build
 
       - name: Upload build artifacts
