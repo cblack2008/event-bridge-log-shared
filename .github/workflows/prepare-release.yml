@@ -11,7 +11,6 @@ on:
       custom_version:
         description: "If custom selected, enter X.Y.Z"
         required: false
-      # Intentionally no base_ref; workflow runs against the selected branch
 
 jobs:
   build:
@@ -149,6 +148,17 @@ jobs:
               echo "If PR already exists, continuing"; exit 0;
             }
 
-      # post-PR verification removed as PR creation no longer mutates the branch
-
-      # Auto-merge can be enabled manually if desired
+      - name: Enable auto-merge for PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BR="release/v${{ steps.ver.outputs.new }}"
+          echo "Looking up PR for head=$BR"
+          NUM=$(gh pr list --head "$BR" --json number --jq '.[0].number' || echo "")
+          if [ -n "$NUM" ]; then
+            echo "Enabling auto-merge (squash) for PR #$NUM"
+            gh pr merge --squash --auto "$NUM" || echo "Auto-merge enable failed; continuing"
+          else
+            echo "No PR found for $BR; skipping auto-merge"
+          fi
