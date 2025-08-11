@@ -53,17 +53,18 @@ jobs:
           echo "version $NEW"
           echo "new=$NEW" >> "$GITHUB_OUTPUT"
 
-      - name: Commit and tag release
+      - name: Create release branch and commit
         shell: bash
         run: |
           set -euo pipefail
           NEW="${{ steps.ver.outputs.new }}"
+          BR="release/v${NEW}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
           git add src/event_bridge_log_shared/__init__.py
           git commit -m "chore(release): v${NEW}"
-          git tag "v${NEW}"
-          git push origin HEAD:main --tags
+          git push -u origin "$BR"
 
       - name: Build distributions
         run: |
@@ -76,15 +77,10 @@ jobs:
           name: dist-${{ steps.ver.outputs.new }}
           path: dist/
 
-      - name: Bump to next dev version on main
-        shell: bash
-        run: |
-          set -euo pipefail
-          FILE=src/event_bridge_log_shared/__init__.py
-          REL="${{ steps.ver.outputs.new }}"
-          IFS=. read -r MA MI PA <<<"$REL"
-          NEXT="$MA.$MI.$((PA+1)).dev0"
-          sed -E -i 's/__version__\s*=\s*"[^"]+"/__version__ = "'"$NEXT"'"/' "$FILE"
-          git add "$FILE"
-          git commit -m "chore(version): set next dev $NEXT"
-          git push
+      - name: Open Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ github.repository }}/release/v${{ steps.ver.outputs.new }}
+          title: "chore(release): v${{ steps.ver.outputs.new }}"
+          body: "Prepare release v${{ steps.ver.outputs.new }} (built artifact uploaded as dist-${{ steps.ver.outputs.new }})"
+          base: main

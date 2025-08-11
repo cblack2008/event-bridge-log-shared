@@ -13,18 +13,46 @@ jobs:
     environment: release
     permissions:
       packages: write
-      contents: read
+      contents: write
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          name: dist-${{ github.event.inputs.version }}
-          path: dist/
+          python-version: "3.13"
+
+      - name: Verify version matches input
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=src/event_bridge_log_shared/__init__.py
+          CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          REQ="${{ github.event.inputs.version }}"
+          echo "repo version: $CURR, requested: $REQ"
+          if [ "$CURR" != "$REQ" ]; then
+            echo "Version mismatch. Update main to $REQ (via Prepare Release) before deploy." >&2
+            exit 1
+          fi
+
+      - name: Build distributions
+        run: |
+          python -m pip install -U pip build
+          python -m build
+
+      - name: Tag release
+        run: |
+          V="${{ github.event.inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v$V" || true
+          git push origin "v$V"
 
       - name: Publish to GitHub Packages (Python)
         env:
           TWINE_USERNAME: ${{ github.actor }}
-          TWINE_PASSWORD: ${{ secrets.GH_PACKAGES_TOKEN }}
+          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           OWNER: cblack2008
         run: |
           python -m pip install -U pip twine
