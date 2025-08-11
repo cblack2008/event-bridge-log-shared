@@ -52,13 +52,20 @@ jobs:
           set -euo pipefail
           SUBJ=$(git log -1 --pretty=%s)
           echo "Commit subject: $SUBJ"
-          if [[ "$SUBJ" =~ ^chore\(release\):\ v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            TAG=${SUBJ#chore(release): }
-            echo "Derived tag: $TAG"
-          else
+          TAG=""
+          # Pattern A: direct release subject, e.g. "chore(release): v1.2.3"
+          if [[ "$SUBJ" =~ ^chore\(release\):\ (v[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            TAG="${BASH_REMATCH[1]}"
+          # Pattern B: merge subject mentioning source branch, e.g. "Merge pull request #123 from org/release/v1.2.3"
+          elif [[ "$SUBJ" =~ from[[:space:]].*/(release/v[0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            TMP="${BASH_REMATCH[1]}"
+            TAG="${TMP#release/}"
+          fi
+          if [ -z "$TAG" ]; then
             echo "Not a release commit; skipping"
             exit 0
           fi
+          echo "Derived tag: $TAG"
           git fetch --tags --force
           if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
             echo "Tag ${TAG} already exists; skipping"
