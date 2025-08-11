@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Shared models and utilities for Event Bridge Log Analytics Platform"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 authors = [
     {name = "cblack2008"}
 ]
@@ -18,8 +18,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Monitoring",
 ]
@@ -73,7 +72,7 @@ path = "src/event_bridge_log_shared/__init__.py"
 
 [tool.black]
 line-length = 100
-target-version = ['py311']
+target-version = ['py313']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -88,7 +87,7 @@ extend-exclude = '''
 '''
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py313"
 line-length = 100
 select = [
     "E",  # pycodestyle errors
@@ -109,7 +108,7 @@ ignore = [
 "__init__.py" = ["F401"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
