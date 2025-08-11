@@ -47,8 +47,8 @@ jobs:
           CUSTOM="${{ github.event.inputs.custom_version }}"
           FILE=src/event_bridge_log_shared/_version.py
           CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
-          if [ "$BUMP" = custom ]; then
-            if [[ -z "${CUSTOM:-}" ]]; then echo "custom_version required"; exit 1; fi
+          echo "Input bump: '$BUMP' ; custom_version: '${CUSTOM:-}' ; current: $CURR"
+          if [[ -n "${CUSTOM:-}" ]]; then
             NEW="$CUSTOM"
           else
             IFS=. read -r MA MI PA <<<"$CURR"
