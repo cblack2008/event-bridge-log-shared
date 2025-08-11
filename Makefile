@@ -1,12 +1,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: dev-setup hooks format lint test coverage-html precommit clean help
+.PHONY: dev-setup hooks format lint test coverage-html precommit precommit-changed clean help
 
 dev-setup: ## One-time developer setup (deps + hooks)
 	uv sync --extra dev
 	@if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then \
-		.venv/bin/pre-commit install; \
+		uv run pre-commit install; \
 		echo "pre-commit hooks installed"; \
 	else \
 		echo "Skipping pre-commit install (not a git repo)"; \
@@ -14,7 +14,7 @@ dev-setup: ## One-time developer setup (deps + hooks)
 
 hooks: ## Install pre-commit hooks (pinned; no autoupdate)
 	uv sync --extra dev
-	.venv/bin/pre-commit install
+	uv run pre-commit install
 
 format: ## Auto-format (black) and auto-fix lint (ruff)
 	uv run black src/ tests/
@@ -33,7 +33,10 @@ coverage-html: ## Generate HTML coverage report and open (macOS)
 	open htmlcov/index.html
 
 precommit: ## Run all pre-commit hooks against all files
-	.venv/bin/pre-commit run --all-files
+	uv run pre-commit run --all-files
+
+precommit-changed: ## Run pre-commit hooks on staged/changed files only
+	uv run pre-commit run
 
 clean: ## Remove caches and build artifacts
 	find . -name "__pycache__" -type d -exec rm -rf {} +
