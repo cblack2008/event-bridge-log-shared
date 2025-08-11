@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     outputs:
       version: ${{ steps.ver.outputs.new }}
     steps:
@@ -53,6 +54,16 @@ jobs:
           echo "version $NEW"
           echo "new=$NEW" >> "$GITHUB_OUTPUT"
 
+      - name: Guard existing release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          if git ls-remote --exit-code --heads origin "refs/heads/release/v$NEW" >/dev/null 2>&1; then
+            echo "release/v$NEW already exists. Merge/close it or choose another version." >&2
+            exit 1
+          fi
+
       - name: Create release branch and commit
         shell: bash
         run: |
@@ -78,9 +89,23 @@ jobs:
           path: dist/
 
       - name: Open Pull Request
+        id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: ${{ github.repository }}/release/v${{ steps.ver.outputs.new }}
-          title: "chore(release): v${{ steps.ver.outputs.new }}"
-          body: "Prepare release v${{ steps.ver.outputs.new }} (built artifact uploaded as dist-${{ steps.ver.outputs.new }})"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/v${{ steps.ver.outputs.new }}
           base: main
+          title: "chore(release): v${{ steps.ver.outputs.new }}"
+          body: |
+            Prepare release v${{ steps.ver.outputs.new }}.
+
+            A built artifact has been uploaded as `dist-${{ steps.ver.outputs.new }}`.
+          labels: release
+
+      - name: Enable auto-merge
+        if: ${{ steps.cpr.outputs.pull-request-number != '' }}
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: squash
