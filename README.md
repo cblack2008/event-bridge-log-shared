@@ -1,32 +1,28 @@
 # Event Bridge Log Analytics - Shared Package
 
 [![PyPI version](https://badge.fury.io/py/event-bridge-log-shared.svg)](https://badge.fury.io/py/event-bridge-log-shared)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A comprehensive shared library for Event Bridge Log Analytics Platform, providing common models, utilities, and configurations for microservices.
+A comprehensive shared library for Event Bridge Log Analytics Platform, providing common models and small, service-agnostic utilities for microservices.
 
 ## 🎯 **Purpose**
 
 This package centralizes shared code used across multiple microservices in the Event Bridge Log Analytics Platform:
 
 - **Event Models**: Pydantic models for all event types (user, payment, ecommerce, etc.)
-- **Configuration Management**: Centralized AWS and application settings
-- **Utilities**: Common functions for event processing and validation
+- **Utilities**: Small helpers (e.g., `normalize_env`, `prefix_name`, `build_role_arn`)
+- Service-specific configuration lives in each service, not in this shared package
 - **Type Safety**: Full type hints and validation for enterprise reliability
 
 ## 📦 **Installation**
 
 ```bash
-# From PyPI (recommended)
 pip install event-bridge-log-shared
 
 # From GitHub (latest)
-pip install git+https://github.com/yourusername/event-bridge-log-shared.git
-
-# For development
-pip install event-bridge-log-shared[dev]
+pip install git+https://github.com/cblack2008/event-bridge-log-shared.git
 ```
 
 ## 🚀 **Quick Start**
@@ -69,18 +65,14 @@ print(f"Event ID: {user_event.event_id}")
 print(f"Timestamp: {user_event.timestamp}")
 ```
 
-### **Configuration**
+### **Utilities (env + names)**
 
 ```python
-from event_bridge_log_shared import build_settings
+from event_bridge_log_shared.utils import normalize_env, prefix_name, build_role_arn
 
-cfg = build_settings(
-    aws={"environment": "development", "region": "us-east-1"},
-    app={"app_name": "my-service", "debug": True},
-)
-
-print(cfg.aws.eventbridge_bus_name)
-print(cfg.app.app_name)
+env = normalize_env("development")  # -> "dev"
+bus = prefix_name(env, "event-bridge-log-bus")  # -> "dev-event-bridge-log-bus"
+role_arn = build_role_arn("123456789012", "MyExecutionRole")
 ```
 
 ### **All Available Events**
@@ -99,12 +91,10 @@ All events extend `BaseEvent` and include:
 - **Correlation support**: For distributed tracing
 - **Metadata**: Extensible additional data
 
-### **Configuration Management**
+### **Configuration Guidance**
 
-- **Environment-based**: Automatic dev/prod configuration
-- **AWS Integration**: Native boto3 session management
-- **Validation**: Pydantic-powered setting validation
-- **Security**: No hardcoded credentials or endpoints
+- Keep service-specific settings inside each service (e.g., `services/api/src/api/settings.py`)
+- Shared package only provides pure helpers (`normalize_env`, `prefix_name`, `build_role_arn`)
 
 ## 🔒 **Security**
 
@@ -147,14 +137,14 @@ make format
 
 ### **Release Process**
 
-1. Update version in `src/event_bridge_log_shared/__init__.py`
-2. Update `CHANGELOG.md`
-3. Create GitHub release
-4. Automated CI/CD publishes to PyPI
+1. Merge to `main`
+2. Run the GitHub Action "Release PR (manual)" to open/update the Release PR
+3. Review and merge the Release PR (tag + GitHub Release are created)
+4. The "Release" workflow publishes to PyPI via Trusted Publishing (no API token needed)
 
 ## 📋 **Requirements**
 
-- **Python**: 3.11 or higher
+- **Python**: 3.13
 - **AWS SDK**: boto3 >= 1.40.0
 - **Validation**: pydantic >= 2.11.0
 - **Settings**: pydantic-settings >= 2.10.0
@@ -175,11 +165,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 **Related Projects**
 
-- [Event Bridge Log Analytics](https://github.com/yourusername/event-bridge-log) - Main microservices platform
-- [Documentation](https://yourusername.github.io/event-bridge-log-shared) - Complete API documentation
+- [Event Bridge Log Analytics](https://github.com/cblack2008/event-bridge-log) - Main microservices platform
 
 ## 📞 **Support**
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/event-bridge-log-shared/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/event-bridge-log-shared/discussions)
-- **Email**: your.email@example.com
+- **Issues**: [GitHub Issues](https://github.com/cblack2008/event-bridge-log-shared/issues)
+- **Discussions**: use Issues for Q&A
