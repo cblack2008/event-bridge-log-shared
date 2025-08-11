@@ -36,7 +36,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Compute and set release version
+      - name: Compute next release version
         id: ver
         shell: bash
         run: |
@@ -58,23 +58,6 @@ jobs:
               patch) NEW="$MA.$MI.$((PA+1))" ;;
               *) echo "Invalid bump: $BUMP"; exit 1 ;;
             esac
-          fi
-          python -m pip install -U hatch
-          hatch version "$NEW"
-          # Verify hatch actually updated the file; if not, fall back to sed replacement
-          AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
-          if [ "$AFTER" != "$NEW" ]; then
-            echo "Hatch did not update version (got $AFTER). Applying sed fallback..."
-            sed -i.bak -E "s/^(__version__\s*=\s*\")[^\"]+(\".*)$/\\1${NEW}\\2/" "$FILE"
-            rm -f "$FILE.bak"
-            AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
-          fi
-          echo "Old: $CURR"
-          echo "New: $NEW"
-          echo "File now has: $AFTER"
-          if [ "$AFTER" != "$NEW" ]; then
-            echo "Version in $FILE still not $NEW; aborting." >&2
-            exit 1
           fi
           echo "version $NEW"
           echo "new=$NEW" >> "$GITHUB_OUTPUT"
@@ -98,9 +81,27 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BR"
+          FILE=src/event_bridge_log_shared/_version.py
+          echo "Applying version $NEW to $FILE on branch $BR"
+          python -m pip install -U hatch
+          hatch version "$NEW"
+          # Verify hatch actually updated the file; if not, fall back to sed replacement (portable POSIX class)
+          AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          if [ "$AFTER" != "$NEW" ]; then
+            echo "Hatch did not update version (got $AFTER). Applying sed fallback..."
+            sed -i.bak -E "s/^(__version__)[[:space:]]*=[[:space:]]*\"[^\"]+\"/\\1 = \"${NEW}\"/" "$FILE"
+            rm -f "$FILE.bak"
+            AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          fi
+          echo "Old version found: $(git show :$FILE | sed -n '1,1p' 2>/dev/null || true)"
+          echo "File now has version: $AFTER"
+          if [ "$AFTER" != "$NEW" ]; then
+            echo "Version in $FILE still not $NEW; aborting." >&2
+            exit 1
+          fi
           echo "Git status before add:" && git status --porcelain
-          echo "Diff for file before commit:" && git diff -- src/event_bridge_log_shared/_version.py || true
-          git add src/event_bridge_log_shared/_version.py
+          echo "Diff for file before commit:" && git diff -- "$FILE" || true
+          git add "$FILE"
           git commit -m "chore(release): v${NEW}"
           git push -u origin "$BR"
 
