@@ -94,4 +94,7 @@ class TestPackageImports:
 
         # Should have version
         assert hasattr(event_bridge_log_shared, "__version__")
-        assert event_bridge_log_shared.__version__ == "1.0.0"
+        import re
+
+        assert isinstance(event_bridge_log_shared.__version__, str)
+        assert re.match(r"^\d+\.\d+\.\d+$", event_bridge_log_shared.__version__)
