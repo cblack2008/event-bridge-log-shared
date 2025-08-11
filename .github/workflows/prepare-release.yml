@@ -105,6 +105,23 @@ jobs:
           echo "Remote $FILE on $BR: $REMOTE"
           test "$REMOTE" = "$NEW"
 
+      - name: Create and push tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          TAG="v${NEW}"
+          echo "Preparing to create tag $TAG"
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists on remote; skipping tag creation"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "release $TAG"
+            git push origin "$TAG"
+          fi
+
       - name: Build distributions
         run: |
           python -m pip install -U pip build hatch

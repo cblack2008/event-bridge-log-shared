@@ -64,8 +64,12 @@ jobs:
           V="${{ github.event.inputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v$V" || true
-          git push origin "v$V"
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            echo "Tag v$V already exists; skipping creation"
+          else
+            git tag -a "v$V" -m "release v$V"
+            git push origin "v$V"
+          fi
 
       - name: Publish to GitHub Packages (Python)
         env:
