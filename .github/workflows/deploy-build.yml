@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          FILE=src/event_bridge_log_shared/__init__.py
+          FILE=src/event_bridge_log_shared/_version.py
           CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
           REQ="${{ github.event.inputs.version }}"
           echo "repo version: $CURR, requested: $REQ"

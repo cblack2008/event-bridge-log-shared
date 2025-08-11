@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           BUMP="${{ github.event.inputs.bump }}"
           CUSTOM="${{ github.event.inputs.custom_version }}"
-          FILE=src/event_bridge_log_shared/__init__.py
+          FILE=src/event_bridge_log_shared/_version.py
           CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
           if [ "$BUMP" = custom ]; then
             if [[ -z "${CUSTOM:-}" ]]; then echo "custom_version required"; exit 1; fi
@@ -92,8 +92,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BR"
           echo "Git status before add:" && git status --porcelain
-          echo "Diff for file before commit:" && git diff -- src/event_bridge_log_shared/__init__.py || true
-          git add src/event_bridge_log_shared/__init__.py
+          echo "Diff for file before commit:" && git diff -- src/event_bridge_log_shared/_version.py || true
+          git add src/event_bridge_log_shared/_version.py
           git commit -m "chore(release): v${NEW}"
           git push -u origin "$BR"
 

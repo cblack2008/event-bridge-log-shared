@@ -10,7 +10,7 @@ Note:
   configuration and composes these helpers locally.
 """
 
-__version__ = "1.0.0"
+from ._version import __version__
 
 # Intentionally do not re-export all event classes to avoid wildcard imports.
 # Consumers should import specific models from `event_bridge_log_shared.models.events`.
