@@ -23,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,6 +54,21 @@ jobs:
           fi
           python -m pip install -U hatch
           hatch version "$NEW"
+          # Verify hatch actually updated the file; if not, fall back to sed replacement
+          AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          if [ "$AFTER" != "$NEW" ]; then
+            echo "Hatch did not update version (got $AFTER). Applying sed fallback..."
+            sed -i.bak -E "s/^(__version__\s*=\s*\")[^\"]+(\".*)$/\\1${NEW}\\2/" "$FILE"
+            rm -f "$FILE.bak"
+            AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          fi
+          echo "Old: $CURR"
+          echo "New: $NEW"
+          echo "File now has: $AFTER"
+          if [ "$AFTER" != "$NEW" ]; then
+            echo "Version in $FILE still not $NEW; aborting." >&2
+            exit 1
+          fi
           echo "version $NEW"
           echo "new=$NEW" >> "$GITHUB_OUTPUT"
 
@@ -74,6 +91,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BR"
+          echo "Git status before add:" && git status --porcelain
+          echo "Diff for file before commit:" && git diff -- src/event_bridge_log_shared/__init__.py || true
           git add src/event_bridge_log_shared/__init__.py
           git commit -m "chore(release): v${NEW}"
           git push -u origin "$BR"
