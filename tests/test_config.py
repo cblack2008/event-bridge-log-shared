@@ -1,9 +1,11 @@
 """
 Test suite for configuration management.
 """
+
 import os
 
 import pytest
+
 from event_bridge_log_shared.utils.config import (
     build_role_arn,
     normalize_env,

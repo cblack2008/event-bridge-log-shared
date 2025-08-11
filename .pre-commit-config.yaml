@@ -1,6 +1,9 @@
+default_language_version:
+  python: python3.13
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
       - id: check-toml
@@ -8,17 +11,17 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
 
-  - repo: https://github.com/psf/black
-    rev: 23.12.1
-    hooks:
-      - id: black
-        language_version: python3.11
-
+  # Run ruff (fix) before black so import/order fixes are formatted afterward
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.10
+    rev: v0.12.8
     hooks:
       - id: ruff
-        args: ["--fix"]
+
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        args: ["--check"]
 
   - repo: local
     hooks:
@@ -28,3 +31,27 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
+      - id: ruff-all
+        name: ruff (all files on push)
+        entry: uv run ruff check src/ tests/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: black-check-all
+        name: black --check (all files on push)
+        entry: uv run black --check src/ tests/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: mypy-src-all
+        name: mypy src/ (pre-push)
+        entry: uv run mypy src/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: pytest-all
+        name: pytest (pre-push)
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

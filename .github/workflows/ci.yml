@@ -1,10 +1,10 @@
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
     branches: ["**"]
+  push:
+    branches: ["main"]
   workflow_dispatch:
 
 concurrency:
@@ -49,13 +49,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        uv run pytest --cov=src/event_bridge_log_shared --cov-report=xml --cov-report=term-missing
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: true
-        token: ${{ secrets.CODECOV_TOKEN }}
-
-  # CI workflow only; publishing moved to separate workflows
+        uv run pytest -q

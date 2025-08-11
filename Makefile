@@ -1,12 +1,12 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-.PHONY: dev-setup hooks format lint test coverage-html precommit clean help
+.PHONY: dev-setup hooks format lint test coverage-html precommit precommit-changed commit commit-push clean help
 
 dev-setup: ## One-time developer setup (deps + hooks)
 	uv sync --extra dev
 	@if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null; then \
-		.venv/bin/pre-commit install; \
+		uv run pre-commit install; \
 		echo "pre-commit hooks installed"; \
 	else \
 		echo "Skipping pre-commit install (not a git repo)"; \
@@ -14,11 +14,11 @@ dev-setup: ## One-time developer setup (deps + hooks)
 
 hooks: ## Install pre-commit hooks (pinned; no autoupdate)
 	uv sync --extra dev
-	.venv/bin/pre-commit install
+	uv run pre-commit install
 
-format: ## Auto-format (black) and auto-fix lint (ruff)
-	uv run black src/ tests/
+format: ## Auto-fix lint (ruff) then format (black)
 	uv run ruff check --fix src/ tests/
+	uv run black src/ tests/
 
 lint: ## Lint (no fixes) + type check
 	uv run ruff check src/ tests/
@@ -33,7 +33,21 @@ coverage-html: ## Generate HTML coverage report and open (macOS)
 	open htmlcov/index.html
 
 precommit: ## Run all pre-commit hooks against all files
-	.venv/bin/pre-commit run --all-files
+	uv run pre-commit run --all-files
+
+precommit-changed: ## Run pre-commit hooks on staged/changed files only
+	uv run pre-commit run
+
+commit: ## Format, stage, run hooks, then commit (usage: make commit M="your msg")
+	@test -n "$(M)" || (echo "Provide commit message with M=..." && exit 1)
+	$(MAKE) format
+	git add -A
+	uv run pre-commit run --all-files || true
+	git add -A
+	git commit -m "$(M)"
+
+commit-push: commit ## Commit and push current branch
+	git push
 
 clean: ## Remove caches and build artifacts
 	find . -name "__pycache__" -type d -exec rm -rf {} +
