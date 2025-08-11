@@ -78,7 +78,7 @@ include = [
 ]
 
 [tool.hatch.version]
-path = "src/event_bridge_log_shared/__init__.py"
+path = "src/event_bridge_log_shared/_version.py"
 
 [tool.black]
 line-length = 100

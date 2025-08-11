@@ -11,6 +11,9 @@ on:
       custom_version:
         description: "If custom selected, enter X.Y.Z"
         required: false
+      base_ref:
+        description: "Base branch/ref to create the release from (defaults to the branch this workflow runs on)"
+        required: false
 
 jobs:
   build:
@@ -26,6 +29,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Optionally switch to base_ref
+        if: ${{ inputs.base_ref != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='${{ inputs.base_ref }}'
+          echo "Requested base_ref: $BASE"
+          echo "Fetching remote refs..."
+          git fetch origin --prune
+          if git show-ref --verify --quiet "refs/remotes/origin/${BASE}"; then
+            echo "Found remote branch origin/${BASE}; switching..."
+            git checkout -B "$BASE" "origin/${BASE}"
+          elif git show-ref --verify --quiet "refs/heads/${BASE}"; then
+            echo "Found local branch ${BASE}; switching..."
+            git checkout "$BASE"
+          elif git show-ref --verify --quiet "refs/tags/${BASE}"; then
+            echo "Found tag ${BASE}; switching (detached HEAD)..."
+            git checkout "refs/tags/${BASE}"
+          else
+            echo "base_ref '$BASE' not found as branch or tag. Available remote branches:" >&2
+            git branch -r >&2 || true
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -36,12 +63,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "Current HEAD ref: $(git rev-parse --abbrev-ref HEAD)"
+          echo "Current HEAD sha: $(git rev-parse HEAD)"
           BUMP="${{ github.event.inputs.bump }}"
           CUSTOM="${{ github.event.inputs.custom_version }}"
-          FILE=src/event_bridge_log_shared/__init__.py
+          FILE=src/event_bridge_log_shared/_version.py
           CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
-          if [ "$BUMP" = custom ]; then
-            if [[ -z "${CUSTOM:-}" ]]; then echo "custom_version required"; exit 1; fi
+          echo "Input bump: '$BUMP' ; custom_version: '${CUSTOM:-}' ; current: $CURR"
+          if [[ -n "${CUSTOM:-}" ]]; then
             NEW="$CUSTOM"
           else
             IFS=. read -r MA MI PA <<<"$CURR"
@@ -92,8 +121,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BR"
           echo "Git status before add:" && git status --porcelain
-          echo "Diff for file before commit:" && git diff -- src/event_bridge_log_shared/__init__.py || true
-          git add src/event_bridge_log_shared/__init__.py
+          echo "Diff for file before commit:" && git diff -- src/event_bridge_log_shared/_version.py || true
+          git add src/event_bridge_log_shared/_version.py
           git commit -m "chore(release): v${NEW}"
           git push -u origin "$BR"
 
