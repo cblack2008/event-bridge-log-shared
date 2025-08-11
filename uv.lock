@@ -286,7 +286,6 @@ wheels = [
 
 [[package]]
 name = "event-bridge-log-shared"
-version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },
