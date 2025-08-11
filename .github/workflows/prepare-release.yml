@@ -11,6 +11,9 @@ on:
       custom_version:
         description: "If custom selected, enter X.Y.Z"
         required: false
+      base_ref:
+        description: "Base branch/ref to create the release from (defaults to the branch this workflow runs on)"
+        required: false
 
 jobs:
   build:
@@ -25,6 +28,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # If base_ref provided, check out that; otherwise the ref that triggered the workflow
+          ref: ${{ github.event.inputs.base_ref != '' && github.event.inputs.base_ref || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,6 +41,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "Current HEAD ref: $(git rev-parse --abbrev-ref HEAD)"
+          echo "Current HEAD sha: $(git rev-parse HEAD)"
           BUMP="${{ github.event.inputs.bump }}"
           CUSTOM="${{ github.event.inputs.custom_version }}"
           FILE=src/event_bridge_log_shared/_version.py
