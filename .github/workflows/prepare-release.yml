@@ -112,8 +112,8 @@ jobs:
           NEW="${{ steps.ver.outputs.new }}"
           FILE=src/event_bridge_log_shared/_version.py
           BR="release/v${NEW}"
-          git fetch origin "$BR:$BR" --force
-          REMOTE=$(git show "$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
+          git fetch origin "$BR" --force
+          REMOTE=$(git show "origin/$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
           echo "Remote $FILE on $BR: $REMOTE"
           test "$REMOTE" = "$NEW"
 
@@ -150,8 +150,8 @@ jobs:
           NEW="${{ steps.ver.outputs.new }}"
           FILE=src/event_bridge_log_shared/_version.py
           BR="release/v${NEW}"
-          git fetch origin "$BR:$BR" --force
-          REMOTE=$(git show "$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
+          git fetch origin "$BR" --force
+          REMOTE=$(git show "origin/$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
           echo "Remote $FILE on $BR (after PR step): $REMOTE"
           test "$REMOTE" = "$NEW"
 
