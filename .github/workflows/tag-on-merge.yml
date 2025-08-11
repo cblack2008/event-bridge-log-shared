@@ -59,9 +59,27 @@ jobs:
           set -euo pipefail
           MSG=$(git log -1 --pretty=%B)
           echo "Last commit message: $MSG"
+          # Pattern A: direct release commit message
           TAG=$(echo "$MSG" | sed -nE 's/^chore\(release\): (v[0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
           if [ -z "${TAG:-}" ]; then
-            echo "No release commit message found; skipping"
+            # Pattern B: merge commit message containing source branch like ... from <org>/release/vX.Y.Z
+            BR=$(echo "$MSG" | sed -nE 's#^Merge pull request #[0-9]+ from [^/]*/(release/v[0-9]+\.[0-9]+\.[0-9]+).*#\1#p')
+            if [ -n "${BR:-}" ]; then
+              TAG="${BR#release/}"
+            fi
+          fi
+          if [ -z "${TAG:-}" ]; then
+            echo "No release tag found in commit message; querying recent merged PRs"
+            if command -v gh >/dev/null 2>&1; then
+              CAND=$(gh pr list --state merged --base main --json headRefName,mergeCommit -L 10 --jq '[.[] | select(.headRefName|startswith("release/v"))][0]')
+              if [ -n "$CAND" ]; then
+                TAG=$(echo "$CAND" | sed -nE 's#.*"headRefName":"release/(v[0-9]+\.[0-9]+\.[0-9]+)".*#\1#p')
+                SHA=$(echo "$CAND" | sed -nE 's#.*"mergeCommit":"([a-f0-9]{40})".*#\1#p')
+              fi
+            fi
+          fi
+          if [ -z "${TAG:-}" ]; then
+            echo "No release information found; skipping"
             exit 0
           fi
           git fetch --tags --force
@@ -69,7 +87,9 @@ jobs:
             echo "Tag ${TAG} already exists; skipping"
             exit 0
           fi
-          SHA=$(git rev-parse HEAD)
+          if [ -z "${SHA:-}" ]; then
+            SHA=$(git rev-parse HEAD)
+          fi
           echo "Tagging ${TAG} at ${SHA}"
           git tag -a "${TAG}" -m "release ${TAG}" "$SHA"
           git push origin "${TAG}"
