@@ -129,19 +129,20 @@ jobs:
           path: dist/
 
       - name: Open Pull Request
-        id: cpr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: release/v${{ steps.ver.outputs.new }}
-          base: main
-          title: "chore(release): v${{ steps.ver.outputs.new }}"
-          body: |
-            Prepare release v${{ steps.ver.outputs.new }}.
-
-            A built artifact has been uploaded as `dist-${{ steps.ver.outputs.new }}`.
-          labels: release
-          reset-branch: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          BR="release/v${NEW}"
+          echo "Creating PR from $BR -> main"
+          gh pr create \
+            --base main \
+            --head "$BR" \
+            --title "chore(release): v${NEW}" \
+            --body "Prepare release v${NEW}.\n\nA built artifact has been uploaded as dist-${NEW}." || {
+              echo "If PR already exists, continuing"; exit 0;
+            }
 
       - name: Verify branch still contains bumped version (post-PR)
         shell: bash
