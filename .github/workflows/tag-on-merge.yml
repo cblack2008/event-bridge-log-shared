@@ -16,16 +16,29 @@ jobs:
           fetch-depth: 0
       - name: Create tag at merge commit
         env:
-          V: ${{ github.event.pull_request.head.ref }}
-          SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          TAG="${V#release/}"
-          echo "Creating tag ${TAG} at ${SHA}"
+          TAG="${HEAD_REF#release/}"
+          echo "Preparing tag ${TAG} for PR #${PR_NUM}"
+          git fetch origin main --force
           git fetch --tags --force
           if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
             echo "Tag ${TAG} already exists, skipping"
             exit 0
           fi
-          git tag -a "${TAG}" -m "release ${TAG}" "${SHA}"
+          # Try to get the exact merge commit associated with the PR
+          SHA=$(gh pr view "$PR_NUM" --json mergeCommit -q .mergeCommit.oid || echo "")
+          if [ -z "$SHA" ] || ! git cat-file -e "$SHA^{commit}" 2>/dev/null; then
+            echo "mergeCommit not available; searching main for the release commit message"
+            SHA=$(git rev-list -n 1 origin/main --grep "^chore(release): ${TAG#v}$") || true
+          fi
+          if [ -z "$SHA" ]; then
+            echo "Falling back to current tip of origin/main"
+            SHA=$(git rev-parse origin/main)
+          fi
+          echo "Tagging ${TAG} at ${SHA}"
+          git tag -a "${TAG}" -m "release ${TAG}" "$SHA"
           git push origin "${TAG}"
