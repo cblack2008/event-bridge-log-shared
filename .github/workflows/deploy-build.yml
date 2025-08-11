@@ -23,6 +23,24 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Pre-check release branch and tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="${{ github.event.inputs.version }}"
+          echo "Looking for release branch release/v$V (optional)..."
+          if git ls-remote --exit-code --heads origin "refs/heads/release/v$V" >/dev/null 2>&1; then
+            echo "Found release branch release/v$V"
+          else
+            echo "Note: release branch release/v$V not found (continuing)"
+          fi
+          echo "Checking tag v$V does not already exist..."
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            echo "Tag v$V already exists. Aborting deploy to avoid duplicate publish." >&2
+            exit 1
+          fi
+
       - name: Verify version matches input
         shell: bash
         run: |
