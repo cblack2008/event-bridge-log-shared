@@ -11,9 +11,7 @@ on:
       custom_version:
         description: "If custom selected, enter X.Y.Z"
         required: false
-      base_ref:
-        description: "Base branch/ref to create the release from (defaults to the branch this workflow runs on)"
-        required: false
+      # Intentionally no base_ref; workflow runs against the selected branch
 
 jobs:
   build:
@@ -28,8 +26,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # If base_ref provided, check out that; otherwise the ref that triggered the workflow
-          ref: ${{ inputs.base_ref != '' && inputs.base_ref || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,8 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Current HEAD ref: $(git rev-parse --abbrev-ref HEAD)"
-          echo "Current HEAD sha: $(git rev-parse HEAD)"
+          echo "Base ref: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse HEAD)"
           BUMP="${{ github.event.inputs.bump }}"
           CUSTOM="${{ github.event.inputs.custom_version }}"
           FILE=src/event_bridge_log_shared/_version.py
@@ -85,22 +80,15 @@ jobs:
           echo "Applying version $NEW to $FILE on branch $BR"
           python -m pip install -U hatch
           hatch version "$NEW"
-          # Verify hatch actually updated the file; if not, fall back to sed replacement (portable POSIX class)
           AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
-          if [ "$AFTER" != "$NEW" ]; then
-            echo "Hatch did not update version (got $AFTER). Applying sed fallback..."
-            sed -i.bak -E "s/^(__version__)[[:space:]]*=[[:space:]]*\"[^\"]+\"/\\1 = \"${NEW}\"/" "$FILE"
-            rm -f "$FILE.bak"
-            AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
-          fi
           echo "Old version found: $(git show :$FILE | sed -n '1,1p' 2>/dev/null || true)"
           echo "File now has version: $AFTER"
           if [ "$AFTER" != "$NEW" ]; then
             echo "Version in $FILE still not $NEW; aborting." >&2
             exit 1
           fi
-          echo "Git status before add:" && git status --porcelain
-          echo "Diff for file before commit:" && git diff -- "$FILE" || true
+          git status --porcelain
+          git diff -- "$FILE" || true
           git add "$FILE"
           git commit -m "chore(release): v${NEW}"
           git push -u origin "$BR"
@@ -144,22 +132,6 @@ jobs:
               echo "If PR already exists, continuing"; exit 0;
             }
 
-      - name: Verify branch still contains bumped version (post-PR)
-        shell: bash
-        run: |
-          set -euo pipefail
-          NEW="${{ steps.ver.outputs.new }}"
-          FILE=src/event_bridge_log_shared/_version.py
-          BR="release/v${NEW}"
-          git fetch origin "$BR" --force
-          REMOTE=$(git show "origin/$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
-          echo "Remote $FILE on $BR (after PR step): $REMOTE"
-          test "$REMOTE" = "$NEW"
+      # post-PR verification removed as PR creation no longer mutates the branch
 
-      - name: Enable auto-merge
-        if: ${{ steps.cpr.outputs.pull-request-number != '' }}
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
-          merge-method: squash
+      # Auto-merge can be enabled manually if desired
