@@ -4,8 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to deploy (X.Y.Z)"
-        required: true
+        description: "Version to deploy (X.Y.Z). If omitted on tag trigger, will derive from tag."
+        required: false
+  push:
+    tags:
+      - 'v*.*.*'
 
 jobs:
   publish:
@@ -17,40 +20,53 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
-      - name: Pre-check release branch and tag
+      - name: Resolve version and tag
         shell: bash
         run: |
           set -euo pipefail
-          V="${{ github.event.inputs.version }}"
-          echo "Looking for release branch release/v$V (optional)..."
-          if git ls-remote --exit-code --heads origin "refs/heads/release/v$V" >/dev/null 2>&1; then
-            echo "Found release branch release/v$V"
+          if [ "${{ github.ref_type }}" = tag ]; then
+            TAG="${{ github.ref_name }}"  # e.g., v1.2.3
+            V="${TAG#v}"
           else
-            echo "Note: release branch release/v$V not found (continuing)"
+            V="${{ github.event.inputs.version || '' }}"
+            if [ -z "$V" ]; then
+              echo "version input is required when not running on a tag ref" >&2
+              exit 1
+            fi
+            TAG="v$V"
           fi
-          echo "Checking tag v$V does not already exist..."
+          echo "Resolved version: $V, tag: $TAG"
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Ensure tag exists and checkout tag
+        shell: bash
+        run: |
+          set -euo pipefail
           git fetch --tags --force
-          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
-            echo "Tag v$V already exists. Aborting deploy to avoid duplicate publish." >&2
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} not found on remote" >&2
             exit 1
           fi
+          git checkout -q "refs/tags/${TAG}"
 
-      - name: Verify version matches input
+      - name: Verify version matches tag
         shell: bash
         run: |
           set -euo pipefail
           FILE=src/event_bridge_log_shared/_version.py
           CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
-          REQ="${{ github.event.inputs.version }}"
-          echo "repo version: $CURR, requested: $REQ"
-          if [ "$CURR" != "$REQ" ]; then
-            echo "Version mismatch. Update main to $REQ (via Prepare Release) before deploy." >&2
+          echo "repo version: $CURR, tag version: ${VERSION}"
+          if [ "$CURR" != "${VERSION}" ]; then
+            echo "Version mismatch. Tag ${TAG} implies ${VERSION} but file has $CURR." >&2
             exit 1
           fi
 
@@ -59,17 +75,7 @@ jobs:
           python -m pip install -U pip build
           python -m build
 
-      - name: Tag release
-        run: |
-          V="${{ github.event.inputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
-            echo "Tag v$V already exists; skipping creation"
-          else
-            git tag -a "v$V" -m "release v$V"
-            git push origin "v$V"
-          fi
+      # Tag creation not needed here since we build from an existing tag
 
       - name: Publish to GitHub Packages (Python)
         env:
