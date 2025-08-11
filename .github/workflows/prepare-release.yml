@@ -105,6 +105,18 @@ jobs:
           git commit -m "chore(release): v${NEW}"
           git push -u origin "$BR"
 
+      - name: Verify branch contains bumped version (pre-PR)
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          FILE=src/event_bridge_log_shared/_version.py
+          BR="release/v${NEW}"
+          git fetch origin "$BR:$BR" --force
+          REMOTE=$(git show "$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
+          echo "Remote $FILE on $BR: $REMOTE"
+          test "$REMOTE" = "$NEW"
+
       - name: Build distributions
         run: |
           python -m pip install -U pip build hatch
@@ -129,6 +141,19 @@ jobs:
 
             A built artifact has been uploaded as `dist-${{ steps.ver.outputs.new }}`.
           labels: release
+          reset-branch: false
+
+      - name: Verify branch still contains bumped version (post-PR)
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          FILE=src/event_bridge_log_shared/_version.py
+          BR="release/v${NEW}"
+          git fetch origin "$BR:$BR" --force
+          REMOTE=$(git show "$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
+          echo "Remote $FILE on $BR (after PR step): $REMOTE"
+          test "$REMOTE" = "$NEW"
 
       - name: Enable auto-merge
         if: ${{ steps.cpr.outputs.pull-request-number != '' }}
