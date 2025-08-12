@@ -1,0 +1,227 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        type: choice
+        description: "Version bump"
+        default: patch
+        options: [patch, minor, major, custom]
+      custom_version:
+        description: "If custom selected, enter X.Y.Z"
+        required: false
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      version: ${{ steps.ver.outputs.new }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compute next release version
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Base ref: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse HEAD)"
+          BUMP="${{ github.event.inputs.bump }}"
+          CUSTOM="${{ github.event.inputs.custom_version }}"
+          FILE=src/event_bridge_log_shared/_version.py
+          CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          echo "Input bump: '$BUMP' ; custom_version: '${CUSTOM:-}' ; current: $CURR"
+          if [[ -n "${CUSTOM:-}" ]]; then
+            NEW="$CUSTOM"
+          else
+            IFS=. read -r MA MI PA <<<"$CURR"
+            case "$BUMP" in
+              major) NEW="$((MA+1)).0.0" ;;
+              minor) NEW="$MA.$((MI+1)).0" ;;
+              patch) NEW="$MA.$MI.$((PA+1))" ;;
+              *) echo "Invalid bump: $BUMP"; exit 1 ;;
+            esac
+          fi
+          echo "version $NEW"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Guard existing release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          if git ls-remote --exit-code --heads origin "refs/heads/release/v$NEW" >/dev/null 2>&1; then
+            echo "release/v$NEW already exists. Merge/close it or choose another version." >&2
+            exit 1
+          fi
+
+      - name: Create release branch and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          BR="release/v${NEW}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
+          FILE=src/event_bridge_log_shared/_version.py
+          echo "Applying version $NEW to $FILE on branch $BR"
+          python -m pip install -U hatch
+          hatch version "$NEW"
+          AFTER=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+          echo "Old version found: $(git show :$FILE | sed -n '1,1p' 2>/dev/null || true)"
+          echo "File now has version: $AFTER"
+          if [ "$AFTER" != "$NEW" ]; then
+            echo "Version in $FILE still not $NEW; aborting." >&2
+            exit 1
+          fi
+          git status --porcelain
+          git diff -- "$FILE" || true
+          git add "$FILE"
+          git commit -m "chore(release): v${NEW}"
+          git push -u origin "$BR"
+
+      - name: Verify branch contains bumped version (pre-PR)
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          FILE=src/event_bridge_log_shared/_version.py
+          BR="release/v${NEW}"
+          git fetch origin "$BR" --force
+          REMOTE=$(git show "origin/$BR:$FILE" | python -c "import re,sys;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', sys.stdin.read()).group(1))")
+          echo "Remote $FILE on $BR: $REMOTE"
+          test "$REMOTE" = "$NEW"
+
+      # Tagging is handled post-merge by tag-on-merge workflow
+
+      - name: Build distributions
+        run: |
+          python -m pip install -U pip build hatch
+          python -m build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ steps.ver.outputs.new }}
+          path: dist/
+
+      - name: Open Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NEW="${{ steps.ver.outputs.new }}"
+          BR="release/v${NEW}"
+          echo "Creating PR from $BR -> main"
+          gh pr create \
+            --base main \
+            --head "$BR" \
+            --title "chore(release): v${NEW}" \
+            --body "Prepare release v${NEW}.\n\nA built artifact has been uploaded as dist-${NEW}." || {
+              echo "If PR already exists, continuing"; exit 0;
+            }
+
+      - name: Enable auto-merge for PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BR="release/v${{ steps.ver.outputs.new }}"
+          echo "Looking up PR for head=$BR"
+          NUM=$(gh pr list --head "$BR" --json number --jq '.[0].number' || echo "")
+          if [ -n "$NUM" ]; then
+            echo "Enabling auto-merge (squash) for PR #$NUM"
+            gh pr merge --squash --auto "$NUM" || echo "Auto-merge enable failed; continuing"
+          else
+            echo "No PR found for $BR; skipping auto-merge"
+          fi
+
+      - name: Wait for PR merge and create tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.new }}"
+          TAG="v$VERSION"
+          BR="release/v$VERSION"
+
+          echo "Waiting for PR to merge and creating tag $TAG..."
+
+          # Wait for PR to merge (up to 5 minutes)
+          for i in {1..30}; do
+            NUM=$(gh pr list --head "$BR" --json number --jq '.[0].number' 2>/dev/null || echo "")
+            if [ -z "$NUM" ]; then
+              echo "PR has been merged/closed, proceeding with tagging"
+              break
+            fi
+
+            # Check if PR is merged
+            STATUS=$(gh pr view "$NUM" --json state --jq '.state' 2>/dev/null || echo "")
+            if [ "$STATUS" = "MERGED" ]; then
+              echo "PR #$NUM has been merged"
+              break
+            fi
+
+            echo "Waiting for PR #$NUM to merge... (attempt $i/30)"
+            sleep 10
+          done
+
+          # Get the latest main commit (should be the merge commit)
+          git fetch origin main
+          MERGE_COMMIT=$(git rev-parse origin/main)
+
+          # Verify the merge commit has our version
+          git checkout "$MERGE_COMMIT"
+          FILE="src/event_bridge_log_shared/_version.py"
+          CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+
+          echo "Merge commit: $MERGE_COMMIT"
+          echo "Version in file: $CURR"
+          echo "Expected version: $VERSION"
+
+          if [ "$CURR" != "$VERSION" ]; then
+            echo "❌ Version mismatch. Expected $VERSION, found $CURR"
+            exit 1
+          fi
+
+          # Check if tag already exists
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            echo "⚠️ Tag $TAG already exists, skipping"
+            exit 0
+          fi
+
+          # Create and push tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG" -m "Release $VERSION" "$MERGE_COMMIT"
+          git push origin "$TAG"
+
+          echo "✅ Successfully created and pushed tag $TAG"
+
+          # Create GitHub Release
+          gh release create "$TAG" \
+            --title "Release $VERSION" \
+            --notes "Release $VERSION" \
+            --target "$MERGE_COMMIT"
+
+          echo "✅ Created GitHub Release for $TAG"
+
+      - name: Trigger deployment
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: deploy-release
+          client-payload: '{"tag": "v${{ steps.ver.outputs.new }}"}'
