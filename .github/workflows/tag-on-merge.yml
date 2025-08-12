@@ -3,6 +3,8 @@ name: Tag on Release PR Merge
 on:
   pull_request:
     types: [closed]
+  pull_request_target:
+    types: [closed]
 
 permissions:
   contents: write
