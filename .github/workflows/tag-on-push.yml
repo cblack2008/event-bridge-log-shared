@@ -1,64 +1,80 @@
-name: Tag on Release PR Merge (DISABLED)
+name: Tag on Release Commit Push
 
-# DISABLED: Using tag-on-push.yml instead due to auto-merge trigger issues
 on:
-  workflow_dispatch:  # Manual trigger only
+  push:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  debug:
+  check_release:
     runs-on: ubuntu-latest
+    outputs:
+      is_release: ${{ steps.check.outputs.is_release }}
+      version: ${{ steps.check.outputs.version }}
     steps:
-      - name: Show key fields
-        run: |
-          echo "merged: ${{ github.event.pull_request.merged }}"
-          echo "base.ref: ${{ github.event.pull_request.base.ref }}"
-          echo "head.ref: ${{ github.event.pull_request.head.ref }}"
-          echo "merge_commit_sha: ${{ github.event.pull_request.merge_commit_sha }}"
-
-  tag_release:
-    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout merge commit
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 2  # Need previous commit to compare
 
-      - name: Derive and validate tag
-        id: tag
+      - name: Check if this is a release commit
+        id: check
         shell: bash
         run: |
           set -euo pipefail
-          BR='${{ github.event.pull_request.head.ref }}'    # e.g. release/v1.0.9
-          TAG="${BR#release/}"                               # -> v1.0.9
-          VERSION="${TAG#v}"                                 # -> 1.0.9
 
-          # Validate version in file matches expected
+          # Get commit message
+          MSG=$(git log -1 --format='%s')
+          echo "Commit message: $MSG"
+
+          # Check if it's a release commit
+          if [[ "$MSG" =~ ^chore\(release\):\ v([0-9]+\.[0-9]+\.[0-9]+)\ \(#[0-9]+\)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "✅ Release commit detected for version: $VERSION"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Not a release commit"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  tag_release:
+    needs: check_release
+    if: needs.check_release.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version matches file
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.check_release.outputs.version }}"
+
+          # Check version in file
           FILE="src/event_bridge_log_shared/_version.py"
           CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
 
-          echo "Branch: $BR"
-          echo "Tag: $TAG"
-          echo "Version: $VERSION"
+          echo "Release version: $VERSION"
           echo "File version: $CURR"
 
           if [ "$CURR" != "$VERSION" ]; then
-            echo "ERROR: Version mismatch. Expected $VERSION, found $CURR in $FILE"
+            echo "❌ ERROR: Version mismatch. Expected $VERSION, found $CURR in $FILE"
             exit 1
           fi
 
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "✅ Version validation passed"
 
       - name: Check if tag already exists
         id: check_tag
         shell: bash
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
+          TAG="v${{ needs.check_release.outputs.version }}"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists locally"
             echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -75,9 +91,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="${{ steps.tag.outputs.tag }}"
-          VERSION="${{ steps.tag.outputs.version }}"
-          COMMIT="${{ github.event.pull_request.merge_commit_sha }}"
+          VERSION="${{ needs.check_release.outputs.version }}"
+          TAG="v$VERSION"
+          COMMIT="${{ github.sha }}"
 
           echo "Creating tag $TAG at commit $COMMIT"
 
@@ -97,10 +113,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          VERSION="${{ steps.tag.outputs.version }}"
+          VERSION="${{ needs.check_release.outputs.version }}"
+          TAG="v$VERSION"
 
           gh release create "$TAG" \
             --title "Release $VERSION" \
             --notes "Release $VERSION" \
-            --target "${{ github.event.pull_request.merge_commit_sha }}"
+            --target "${{ github.sha }}"
