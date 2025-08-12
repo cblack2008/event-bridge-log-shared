@@ -16,29 +16,91 @@ jobs:
           echo "merged: ${{ github.event.pull_request.merged }}"
           echo "base.ref: ${{ github.event.pull_request.base.ref }}"
           echo "head.ref: ${{ github.event.pull_request.head.ref }}"
+          echo "merge_commit_sha: ${{ github.event.pull_request.merge_commit_sha }}"
+
   tag_release:
     if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v') }}
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Release branch merged to main; tagging…"
-      - name: Checkout merge commit (with fallback)
+      - name: Checkout merge commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
 
-      - name: Derive tag from branch
+      - name: Derive and validate tag
         id: tag
         shell: bash
         run: |
+          set -euo pipefail
           BR='${{ github.event.pull_request.head.ref }}'    # e.g. release/v1.0.9
           TAG="${BR#release/}"                               # -> v1.0.9
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"                                 # -> 1.0.9
 
-      - name: Create tag
-        uses: anothrNick/github-tag-action@v1.61.0
+          # Validate version in file matches expected
+          FILE="src/event_bridge_log_shared/_version.py"
+          CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+
+          echo "Branch: $BR"
+          echo "Tag: $TAG"
+          echo "Version: $VERSION"
+          echo "File version: $CURR"
+
+          if [ "$CURR" != "$VERSION" ]; then
+            echo "ERROR: Version mismatch. Expected $VERSION, found $CURR in $FILE"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag already exists
+        id: check_tag
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists on remote"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag $TAG does not exist"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${{ steps.tag.outputs.version }}"
+          COMMIT="${{ github.event.pull_request.merge_commit_sha }}"
+
+          echo "Creating tag $TAG at commit $COMMIT"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag
+          git tag -a "$TAG" -m "Release $VERSION" "$COMMIT"
+
+          # Push tag
+          git push origin "$TAG"
+
+          echo "✅ Successfully created and pushed tag $TAG"
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CUSTOM_TAG: ${{ steps.tag.outputs.tag }}
-          WITH_V: false
-          DRY_RUN: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${{ steps.tag.outputs.version }}"
+
+          gh release create "$TAG" \
+            --title "Release $VERSION" \
+            --notes "Release $VERSION" \
+            --target "${{ github.event.pull_request.merge_commit_sha }}"
