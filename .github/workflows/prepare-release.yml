@@ -120,7 +120,7 @@ jobs:
 
       - name: Open Pull Request
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
           NEW="${{ steps.ver.outputs.new }}"
@@ -136,7 +136,7 @@ jobs:
 
       - name: Enable auto-merge for PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
           BR="release/v${{ steps.ver.outputs.new }}"
@@ -151,7 +151,7 @@ jobs:
 
       - name: Wait for PR merge and create tag
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.ver.outputs.new }}"
