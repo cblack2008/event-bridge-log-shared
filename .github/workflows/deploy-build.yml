@@ -9,6 +9,8 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  repository_dispatch:
+    types: [deploy-release]
 
 jobs:
   publish:
@@ -33,9 +35,15 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ github.ref_type }}" = tag ]; then
+            # Triggered by tag push
             TAG="${{ github.ref_name }}"  # e.g., v1.2.3
             V="${TAG#v}"
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Triggered by prepare-release workflow
+            TAG="${{ github.event.client_payload.tag }}"
+            V="${TAG#v}"
           else
+            # Manual workflow dispatch
             V="${{ github.event.inputs.version || '' }}"
             if [ -z "$V" ]; then
               echo "version input is required when not running on a tag ref" >&2

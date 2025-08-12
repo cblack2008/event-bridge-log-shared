@@ -218,3 +218,9 @@ jobs:
             --target "$MERGE_COMMIT"
 
           echo "✅ Created GitHub Release for $TAG"
+
+      - name: Trigger deployment
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: deploy-release
+          client-payload: '{"tag": "v${{ steps.ver.outputs.new }}"}'
