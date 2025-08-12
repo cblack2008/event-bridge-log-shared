@@ -1,14 +1,14 @@
 name: Tag on Release PR Merge
 
 on:
-  pull_request:
+  pull_request_target:
     types: [closed]
   push:
     branches: [main]
 
 jobs:
   tag_release:
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v')
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -16,6 +16,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Debug PR info
+        run: |
+          echo "merged=${{ github.event.pull_request.merged }}"
+          echo "base.ref=${{ github.event.pull_request.base.ref }}"
+          echo "head.ref=${{ github.event.pull_request.head.ref }}"
+          echo "merge_commit_sha=${{ github.event.pull_request.merge_commit_sha }}"
       - name: Create tag at merge commit
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
