@@ -21,11 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "Release branch merged to main; tagging…"
-      - name: Checkout merge commit
+      - name: Checkout merge commit (with fallback)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
       - name: Derive tag from branch
         id: tag
