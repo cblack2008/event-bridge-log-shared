@@ -7,6 +7,11 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# Security: Restrict permissions
+permissions:
+  contents: read
+  checks: write
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
