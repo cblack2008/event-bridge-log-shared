@@ -3,45 +3,35 @@ name: Tag on Release PR Merge
 on:
   pull_request_target:
     types: [closed]
-  push:
-    branches: [main]
 
 jobs:
   tag_release:
-    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v') }}
+    if: ${{ github.event.pull_request.merged && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout merge commit
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Debug PR info
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Derive tag from branch
+        id: tag
+        shell: bash
         run: |
-          echo "merged=${{ github.event.pull_request.merged }}"
-          echo "base.ref=${{ github.event.pull_request.base.ref }}"
-          echo "head.ref=${{ github.event.pull_request.head.ref }}"
-          echo "merge_commit_sha=${{ github.event.pull_request.merge_commit_sha }}"
-      - name: Create tag at merge commit
+          BR='${{ github.event.pull_request.head.ref }}'    # e.g. release/v1.0.9
+          TAG="${BR#release/}"                               # -> v1.0.9
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag
+        uses: anothrNick/github-tag-action@v1.61.0
         env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-        run: |
-          set -euo pipefail
-          TAG="${HEAD_REF#release/}"
-          SHA="${MERGE_SHA}"
-          echo "Tagging ${TAG} at ${SHA}"
-          git fetch --tags --force
-          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "Tag ${TAG} already exists; skipping"
-            exit 0
-          fi
-          # As a safety net, ensure the merge commit exists locally
-          if ! git cat-file -e "$SHA^{commit}" 2>/dev/null; then
-            git fetch origin "$SHA":"refs/tmp/${SHA}" || true
-          fi
-          git tag -a "${TAG}" -m "release ${TAG}" "$SHA"
-          git push origin "${TAG}"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CUSTOM_TAG: ${{ steps.tag.outputs.tag }}
+          WITH_V: false
+          DRY_RUN: false
 
   tag_from_push:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
