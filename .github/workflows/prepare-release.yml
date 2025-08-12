@@ -147,3 +147,74 @@ jobs:
           else
             echo "No PR found for $BR; skipping auto-merge"
           fi
+
+      - name: Wait for PR merge and create tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.new }}"
+          TAG="v$VERSION"
+          BR="release/v$VERSION"
+
+          echo "Waiting for PR to merge and creating tag $TAG..."
+
+          # Wait for PR to merge (up to 5 minutes)
+          for i in {1..30}; do
+            NUM=$(gh pr list --head "$BR" --json number --jq '.[0].number' 2>/dev/null || echo "")
+            if [ -z "$NUM" ]; then
+              echo "PR has been merged/closed, proceeding with tagging"
+              break
+            fi
+
+            # Check if PR is merged
+            STATUS=$(gh pr view "$NUM" --json state --jq '.state' 2>/dev/null || echo "")
+            if [ "$STATUS" = "MERGED" ]; then
+              echo "PR #$NUM has been merged"
+              break
+            fi
+
+            echo "Waiting for PR #$NUM to merge... (attempt $i/30)"
+            sleep 10
+          done
+
+          # Get the latest main commit (should be the merge commit)
+          git fetch origin main
+          MERGE_COMMIT=$(git rev-parse origin/main)
+
+          # Verify the merge commit has our version
+          git checkout "$MERGE_COMMIT"
+          FILE="src/event_bridge_log_shared/_version.py"
+          CURR=$(python -c "import re;print(re.search(r'__version__\\s*=\\s*\"([^\"]+)\"', open(\"$FILE\").read()).group(1))")
+
+          echo "Merge commit: $MERGE_COMMIT"
+          echo "Version in file: $CURR"
+          echo "Expected version: $VERSION"
+
+          if [ "$CURR" != "$VERSION" ]; then
+            echo "❌ Version mismatch. Expected $VERSION, found $CURR"
+            exit 1
+          fi
+
+          # Check if tag already exists
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            echo "⚠️ Tag $TAG already exists, skipping"
+            exit 0
+          fi
+
+          # Create and push tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG" -m "Release $VERSION" "$MERGE_COMMIT"
+          git push origin "$TAG"
+
+          echo "✅ Successfully created and pushed tag $TAG"
+
+          # Create GitHub Release
+          gh release create "$TAG" \
+            --title "Release $VERSION" \
+            --notes "Release $VERSION" \
+            --target "$MERGE_COMMIT"
+
+          echo "✅ Created GitHub Release for $TAG"
